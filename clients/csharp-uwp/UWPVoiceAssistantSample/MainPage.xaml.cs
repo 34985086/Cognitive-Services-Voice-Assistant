@@ -5,6 +5,7 @@ namespace UWPVoiceAssistantSample
 {
     using System;
     using System.Collections.Generic;
+    using System.Collections.ObjectModel;
     using System.Globalization;
     using System.IO;
     using System.Linq;
@@ -40,9 +41,10 @@ namespace UWPVoiceAssistantSample
         private App app;
         private int bufferIndex;
         private bool configModified;
-        private Conversation conversationHistory;
         private bool hypotheizedSpeechToggle;
         private Conversation activeConversation;
+
+        public ObservableCollection<Conversation> conversations;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MainPage"/> class.
@@ -95,9 +97,7 @@ namespace UWPVoiceAssistantSample
             // Ensure consistency between a few dependent controls and their settings
             this.UpdateUIBasedOnToggles();
 
-            this.conversationHistory = new Conversation();
-
-            this.ChatHistoryListView.ItemsSource = this.conversationHistory.conversations;
+            this.conversations = new ObservableCollection<Conversation>();
 
             this.ChatHistoryListView.ContainerContentChanging += this.OnChatHistoryListViewContainerChanging;
         }
@@ -130,7 +130,7 @@ namespace UWPVoiceAssistantSample
             {
                 await this.dialogManager.FinishConversationAsync();
                 await this.dialogManager.StopAudioPlaybackAsync();
-                this.conversationHistory.conversations.Clear();
+                this.conversations.Clear();
                 this.RefreshStatus();
             };
             this.OpenLogLocationButton.Click += async (_, __)
@@ -320,7 +320,7 @@ namespace UWPVoiceAssistantSample
         {
             _ = this.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
-                this.conversationHistory.conversations.Add(new Conversation
+                this.conversations.Add(new Conversation
                 {
                     Body = message,
                     Time = DateTime.Now.ToString(CultureInfo.CurrentCulture),
@@ -344,12 +344,12 @@ namespace UWPVoiceAssistantSample
                             Sent = true,
                         };
 
-                        this.conversationHistory.conversations.Add(this.activeConversation);
+                        this.conversations.Add(this.activeConversation);
                     }
 
-                    //this.activeConversation.Body = message;
-                    this.logger.Log("Speech Recognizing");
-                    this.conversationHistory.conversations.FirstOrDefault(item => true).Body = message;
+                    this.activeConversation.Body = message;
+
+                    this.conversations.Last().Body = message;
                 }
             });
         }
@@ -367,13 +367,11 @@ namespace UWPVoiceAssistantSample
                         Sent = true,
                     };
 
-                    this.conversationHistory.conversations.Add(this.activeConversation);
-
+                    this.conversations.Add(this.activeConversation);
                 }
+
                 this.activeConversation.Body = message;
                 this.activeConversation = null;
-                this.logger.Log("Speech Recognized");
-                //this.TextInputTextBox.Text = this.activeConversation;
             });
 
             this.RefreshStatus();
