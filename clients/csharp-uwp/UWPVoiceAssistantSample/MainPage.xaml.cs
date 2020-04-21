@@ -9,6 +9,7 @@ namespace UWPVoiceAssistantSample
     using System.IO;
     using System.Linq;
     using System.Threading.Tasks;
+    using Microsoft.Bot.Schema;
     using Microsoft.Extensions.DependencyInjection;
     using Newtonsoft.Json;
     using UWPVoiceAssistantSample.AudioCommon;
@@ -40,6 +41,7 @@ namespace UWPVoiceAssistantSample
         private readonly IKeywordRegistration keywordRegistration;
         private readonly IDialogManager dialogManager;
         private readonly IAgentSessionManager agentSessionManager;
+        private readonly DirectLineSpeechDialogBackend directLineSpeechDialogBackend;
         private App app;
         private int bufferIndex;
         private bool configModified;
@@ -62,6 +64,7 @@ namespace UWPVoiceAssistantSample
             this.dialogManager = this.services.GetRequiredService<IDialogManager>();
             this.keywordRegistration = this.services.GetRequiredService<IKeywordRegistration>();
             this.agentSessionManager = this.services.GetRequiredService<IAgentSessionManager>();
+            //this.directLineSpeechDialogBackend = this.services.GetRequiredService<DirectLineSpeechDialogBackend>();
 
             // Ensure that we restore the full view (not the compact mode) upon foreground launch
             _ = this.UpdateViewStateAsync();
@@ -96,6 +99,8 @@ namespace UWPVoiceAssistantSample
             this.Conversations = new ObservableCollection<Conversation>();
 
             this.ChatHistoryListView.ContainerContentChanging += this.OnChatHistoryListViewContainerChanging;
+
+            this.directLineSpeechDialogBackend = new DirectLineSpeechDialogBackend();
         }
 
         private bool BackgroundTaskRegistered
@@ -756,6 +761,28 @@ namespace UWPVoiceAssistantSample
             var json = JsonConvert.SerializeObject(this.Conversations);
             var writeChatHistory = await ApplicationData.Current.LocalFolder.CreateFileAsync($"chatHistory_{DateTime.Now.ToString("yyyyMMdd_HHmmss", null)}.json", CreationCollisionOption.ReplaceExisting);
             await File.WriteAllTextAsync(writeChatHistory.Path, json);
+        }
+
+        private async void TextInputTextBox_KeyUp(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key != VirtualKey.Enter)
+            {
+                return;
+            }
+
+            //await this.directLineSpeechDialogBackend.InitializeAsync(await this.keywordRegistration.GetConfirmationKeywordFileAsync());
+
+                var bfActivity = Activity.CreateMessageActivity();
+                bfActivity.Text = this.TextInputTextBox.Text;
+
+                this.TextInputTextBox.Text = string.Empty;
+
+                var json = JsonConvert.SerializeObject(bfActivity);
+                this.AddMessageToStatus(bfActivity.Text);
+
+                await this.directLineSpeechDialogBackend.SendDialogMessageAsync(json);
+            
+
         }
     }
 }
